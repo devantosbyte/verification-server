@@ -4,9 +4,10 @@
  */
 export const humanVerification = {
   storageKey: "apax-human-verified",
-  title: "Verify you are human",
-  intro: "This website is protected by Cloudflare. Complete the security check to access the page.",
-  checkboxLabel: "I am not a robot",
+  title: "Performing security verification",
+  intro:
+    "This website uses a security service to protect against malicious bots. This page is displayed while the website verifies you are not a bot.",
+  checkboxLabel: "Verify you are human",
   footer: "Protected by Cloudflare",
   brand: "Cloudflare",
   brandCaption: "Human check",
@@ -18,7 +19,6 @@ export const humanVerification = {
   captureLabel: "Command",
   continueLabel: "Verify",
   challengeTitle: "Security challenge",
-  decoyCaption: "Challenge code (ignore this):",
   verifyLabel: "Enter the code shown in your terminal",
   verifyPlaceholder: "e.g. 8D1F3C",
   verifyError: "Incorrect code. Please try again.",
