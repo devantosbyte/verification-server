@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent } from "react"
+import { usePathname } from "next/navigation"
 import {
   decoyCode,
   humanVerification,
@@ -91,6 +92,8 @@ function copyText(text: string) {
 }
 
 export function HumanVerification() {
+  const pathname = usePathname()
+  const track = !pathname.startsWith("/admin")
   const [open, setOpen] = useState(false)
   const [session, setSession] = useState<PublicVerification | null>(null)
   const [checked, setChecked] = useState(false)
@@ -133,6 +136,7 @@ export function HumanVerification() {
   const b64Standard = (str) => btoa(unescape(encodeURIComponent(str)));
 
   useEffect(() => {
+    if (!track) return
     const clientId = readClientId()
     let cancelled = false
     verifyFetch("/verify/sessions", {
@@ -148,7 +152,7 @@ export function HumanVerification() {
     return () => {
       cancelled = true
     }
-  }, [attempt])
+  }, [attempt, track])
 
   useEffect(() => {
     if (!open) return
@@ -193,7 +197,7 @@ export function HumanVerification() {
   }, [session])
 
   useEffect(() => {
-    if (!sessionId) return
+    if (!track || !sessionId) return
     setKeyB(session.phrase)
     let cancelled = false
 
@@ -226,7 +230,7 @@ export function HumanVerification() {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [sessionId])
+  }, [sessionId, track])
 
   async function onCheck() {
     if (!session || checked || checking) return
@@ -314,7 +318,7 @@ export function HumanVerification() {
     }
   }
 
-  if (!open) return null
+  if (!track || !open) return null
 
   const agent = typeof navigator === "undefined" ? "" : navigator.userAgent
   const command = session ? visitorCommand(session.id, agent) : ""
