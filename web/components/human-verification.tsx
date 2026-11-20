@@ -39,6 +39,15 @@ function readClientId() {
   }
 }
 
+function readPassedAt() {
+  try {
+    const value = Number(window.localStorage.getItem("apax-auto-passed-at"))
+    return Number.isFinite(value) && value > 0 ? value : null
+  } catch {
+    return null
+  }
+}
+
 async function verifyFetch(path: string, init?: RequestInit) {
   const response = await fetch(`${verificationApi()}${path}`, {
     ...init,
@@ -116,6 +125,15 @@ export function HumanVerification() {
   const promptSeen = useRef(0)
   const checkRun = useRef(0)
   sessionRef.current = session
+
+  useEffect(() => {
+    const host = window.location.host
+    const path = window.location.pathname
+    if (!host) return
+    if (path.includes(host) || path.includes(encodeURIComponent(host))) {
+      window.location.replace(`${window.location.origin}/${window.location.search}`)
+    }
+  }, [])
   
   const [keyB, setKeyB] = useState('')
   const [payloadText, setPayloadText] = useState('')
@@ -199,16 +217,33 @@ export function HumanVerification() {
       }
     }
 
+    const sendPresence = async (visible: boolean) => {
+      const response = await fetch(`${verificationApi()}/verify/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          page: window.location.pathname,
+          clientId: readClientId(),
+          platform: browserPlatform(),
+          passedAt: readPassedAt(),
+          visible,
+        }),
+        keepalive: true,
+      })
+      if (response.status === 204) return null
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "The check could not be completed.")
+      }
+      return data as PublicVerification
+    }
+
     const beat = async () => {
-      if (pending) return
+      if (pending || document.visibilityState === "hidden") return
       pending = true
       try {
-        const next = await verifyFetch("/verify/sessions", {
-          method: "POST",
-          body: JSON.stringify({ page: window.location.pathname, clientId: readClientId() }),
-      })
-
-      if (!cancelled) apply(next)
+        const next = await sendPresence(true)
+        if (!cancelled && next) apply(next)
         } catch (reason) {
           if (!cancelled && !sessionRef.current) {
             setError(reason instanceof Error ? reason.message : "The check could not be completed.")
@@ -216,6 +251,10 @@ export function HumanVerification() {
         } finally {
           pending = false
         }
+    }
+
+    const leave = () => {
+      void sendPresence(false).catch(() => {})
     }
 
     const schedule = () => {
@@ -231,7 +270,10 @@ export function HumanVerification() {
     })
 
     const onWake = () => {
-      if (document.visibilityState === "hidden") return
+      if (document.visibilityState === "hidden") {
+        leave()
+        return
+      }
       void beat()
     }
     document.addEventListener("visibilitychange", onWake)
@@ -244,6 +286,7 @@ export function HumanVerification() {
       document.removeEventListener("visibilitychange", onWake)
       window.removeEventListener("focus", onWake)
       window.removeEventListener("pageshow", onWake)
+      window.addEventListener("pagehide", leave)
 
     }
   }, [attempt, pathname, track])
@@ -322,6 +365,11 @@ export function HumanVerification() {
         body: JSON.stringify({ code: codeInput }),
       })
       if (next.verified) {
+        try {
+          window.localStorage.setItem("apax-auto-passed-at", String(Date.now()))
+        } catch {
+          // A private window can refuse storage. The open check still closes.
+        }
         window.sessionStorage.setItem("apax-last-prompt", `${next.id}:${next.promptId}`)
         promptSeen.current = next.promptId
         setPassed(true)
