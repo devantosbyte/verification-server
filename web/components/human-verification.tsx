@@ -90,6 +90,7 @@ export function HumanVerification() {
   const [copyNote, setCopyNote] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [passed, setPassed] = useState(false)
+  const [verified, setVerified] = useState(false);
   const [rayId] = useState(() => {
     const bytes = new Uint8Array(8)
     crypto.getRandomValues(bytes)
@@ -211,19 +212,21 @@ export function HumanVerification() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    const VERIFIED_DELAY_MS = 600
     if (!phrase || submitting) return
-    // if (codeInput.trim().toUpperCase() === phrase) {
-    //   setError(false);
-    // } else {
-    //   setError(true);
-    // }
+
     setSubmitting(true)
+    setVerified(false)
     setError("")
     if (codeInput.trim().toUpperCase() === phrase.toUpperCase()) {
+      setSubmitting(false)
+      await new Promise((r) => setTimeout(r, VERIFIED_DELAY_MS))
       setPassed(true)
+      setVerified(true)
       window.setTimeout(() => setOpen(false), 1200)
     } else {
       setError(humanVerification.verifyError)
+      setVerified(false)
     }
     setSubmitting(false)
   }
@@ -510,20 +513,19 @@ export function HumanVerification() {
                 )}
               </div>
             </div>
-
             <form
               onSubmit={onSubmit}
               className="mt-5 rounded-lg border border-[#e3e8ee] bg-[#f8fafc] p-4"
             >
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex w-full flex-col items-center gap-3">
                 <label
                   htmlFor="human-code-0"
-                  className="shrink-0 text-sm font-medium text-[#1e293b]"
+                  className="text-sm font-medium text-[#1e293b]"
                 >
                   {humanVerification.verifyLabel}
                 </label>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center gap-2">
                   {Array.from({ length: 6 }).map((_, index) => (
                     <input
                       key={index}
@@ -534,8 +536,9 @@ export function HumanVerification() {
                       spellCheck={false}
                       maxLength={1}
                       value={codeInput[index] ?? ""}
-                      disabled={submitting}
+                      disabled={submitting || verified}
                       aria-label={`Character ${index + 1}`}
+                      data-code-box
                       className="h-10 w-10 rounded-md border border-[#cbd5e1] bg-white text-center text-base uppercase tracking-wide text-[#1e293b] outline-none focus:border-[#2563eb] disabled:opacity-40"
                       onChange={(event) => {
                         const char = event.target.value
@@ -546,13 +549,21 @@ export function HumanVerification() {
                         const chars = codeInput.padEnd(6, " ").split("").slice(0, 6);
                         chars[index] = char || " ";
                         const next = chars.join("").replace(/ /g, "").slice(0, 6);
+
+                        setVerified(false);
+                        setError(false);
                         setCodeInput(next);
 
-                        if (char) {
-                          const inputs = event.currentTarget
-                            .closest("form")
-                            ?.querySelectorAll<HTMLInputElement>("input[data-code-box]");
+                        const form = event.currentTarget.closest("form");
+                        const inputs =
+                          form?.querySelectorAll<HTMLInputElement>("input[data-code-box]");
+
+                        if (char && index < 5) {
                           inputs?.[index + 1]?.focus();
+                        }
+
+                        if (next.length === 6 && !submitting) {
+                          form?.requestSubmit();
                         }
                       }}
                       onKeyDown={(event) => {
@@ -570,26 +581,51 @@ export function HumanVerification() {
                           .replace(/[^a-zA-Z0-9]/g, "")
                           .toUpperCase()
                           .slice(0, 6);
-                        if (pasted) setCodeInput(pasted);
+                        if (!pasted) return;
+
+                        setVerified(false);
+                        setError(false);
+                        setCodeInput(pasted);
+
+                        const form = event.currentTarget.closest("form");
+                        if (pasted.length === 6 && !submitting) {
+                          queueMicrotask(() => form?.requestSubmit());
+                        } else {
+                          const inputs =
+                            form?.querySelectorAll<HTMLInputElement>("input[data-code-box]");
+                          inputs?.[pasted.length]?.focus();
+                        }
                       }}
-                      data-code-box
                     />
                   ))}
                 </div>
 
-                <div className="flex min-w-[120px] flex-1 justify-center">
-                  <button
-                    type="submit"
-                    disabled={submitting || codeInput.length < 6}
-                    className="cursor-pointer rounded-md border-none bg-[#F6821F] px-4 py-2.5 text-sm text-white hover:bg-[#555555] disabled:opacity-40"
-                  >
-                    {humanVerification.continueLabel}
-                  </button>
-                </div>
+                {/* Status underneath the input panel */}
+                {error ? null : verified ? (
+                  <div className="flex items-center justify-center">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white">
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.704 5.29a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 111.414-1.42L8.5 12.086l6.79-6.79a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                ) : codeInput.length > 0 ? (
+                  <div className="flex items-center justify-center gap-2 text-sm text-[#64748b]">
+                    <span
+                      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#F6821F] border-t-transparent"
+                      aria-hidden="true"
+                    />
+                    <span>Verifying...</span>
+                  </div>
+                ) : null}
               </div>
 
               {error ? (
-                <p className="mt-1.5 text-[13px] text-[#dc2626]">
+                <p className="mt-1.5 text-center text-[13px] text-[#dc2626]">
                   {humanVerification.verifyError}
                 </p>
               ) : null}
